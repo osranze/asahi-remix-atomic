@@ -1,12 +1,5 @@
 ARG REL_VER
-
-FROM scratch AS ctx
-
-COPY build_files /
-
 FROM quay.io/fedora/fedora-bootc:${REL_VER} AS builder
-
-ARG REL_VER
 
 RUN <<BUILDER
 set -xeuo pipefail
@@ -14,57 +7,41 @@ dnf -y install dnf5-plugins
 dnf -y copr enable @asahi/fedora-remix-branding
 dnf -y install asahi-repos
 
-mkdir -p /base-rootfs
-dnf -y --installroot=/base-rootfs \
-  --use-host-config \
-  --releasever="${REL_VER}" \
-  --setopt=install_weak_deps=False \
-  --nodocs install \
-    NetworkManager NetworkManager-wifi \
-    acl asahi-platform-metapackage-core attr audit \
-    bash-color-prompt bash-completion bc bind-utils binutils bluez bluez-tools \
-    bootc bootupd brcmfmac-firmware bsdtar btrfs-progs busybox bzip2 \
-    cirrus-audio-firmware compsize container-selinux coreutils crontabs cryptsetup \
-    dbus distrobox dnf dnf5-plugins dos2unix dosfstools dracut dracut-network dracut-squash \
-    e2fsprogs efibootmgr exfatprogs \
-    fastfetch fedora-repos-archive fuse-overlayfs \
-    git-core glibc-minimal-langpack grub2-efi-aa64 \
-    hostname htop \
-    iproute iputils iwd \
-    jq just \
-    kernel-16k kmscon-freetype kmscon-gl kmscon-pango \
-    less linux-firmware lsof \
-    ncurses nix nix-daemon nmap-ncat nss-altfiles \
-    opensc openssh-clients openssh-server openssl ostree \
-    parted plymouth plymouth-system-theme psmisc python-unversioned-command \
-    rsync \
-    selinux-policy-targeted shim slirp4netns smartmontools socat sudo symlinks systemd systemd-pam systemd-resolved \
-    terminus-fonts-console time tpm2-tools tree tzdata \
-    unzip upower usbutils \
-    vim-minimal \
-    wget which whois \
-    xfsprogs xxhash \
-    zip zram-generator-defaults
+/usr/libexec/bootc-base-imagectl build-rootfs \
+  --manifest=minimal \
+  --exclude kernel \
+  --install asahi-platform-metapackage-core \
+  --install binutils \
+  --install bluez \
+  --install btrfs-progs \
+  --install cryptsetup \
+  --install dnf5-plugins \
+  --install iwd \
+  --install openssh-clients \
+  --install openssh-server \
+  --install plymouth \
+  --install plymouth-system-theme \
+  --install sudo \
+  --install vim-minimal \
+  --install kernel-16k \
+  --install linux-firmware \
+  --install brcmfmac-firmware \
+  --install cirrus-audio-firmware \
+  /target-rootfs
 
-mkdir -p /base-rootfs/etc/yum.repos.d /base-rootfs/etc/pki/rpm-gpg
-cp -a /etc/yum.repos.d/. /base-rootfs/etc/yum.repos.d/
-cp -a /etc/pki/rpm-gpg/. /base-rootfs/etc/pki/rpm-gpg/
-ls -la /base-rootfs
+mkdir -p /target-rootfs/etc/yum.repos.d /target-rootfs/etc/pki/rpm-gpg
+cp -a /etc/yum.repos.d/. /target-rootfs/etc/yum.repos.d/
+cp -a /etc/pki/rpm-gpg/. /target-rootfs/etc/pki/rpm-gpg/
+ls -la /target-rootfs
 BUILDER
 
 FROM scratch
-COPY --from=builder /base-rootfs/ /
-
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    /ctx/99.base-rootfs.sh && \
-    /ctx/05.initramfs.sh
-
-RUN bootc container lint --no-truncate
+COPY --from=builder /target-rootfs/ /
 
 LABEL containers.bootc 1
+LABEL ostree.bootable 1
 
 ENV container=oci
-
 STOPSIGNAL SIGRTMIN+3
 
 CMD ["/sbin/init"]
