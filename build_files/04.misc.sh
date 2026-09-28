@@ -5,7 +5,7 @@ cp -avf "/ctx/system_files"/. /
 
 . /ctx/selinux-copyup.sh
 semanage fcontext -a -f f -t xdm_exec_t "/usr/bin/ly"
-semodule -i /ctx/nix.pp
+semodule -i /usr/share/selinux/custom/nix.pp
 
 printf "NoDisplay=true\n" >> /usr/share/applications/panel-preferences.desktop
 

@@ -1,0 +1,122 @@
+# Package set for the base image, installed with native `dnf --installroot`.
+#
+# This mirrors the mkosi `base` and `asahi` profiles:
+#   mkosi.profiles/base/mkosi.conf.d/*.conf
+#   mkosi.profiles/asahi/mkosi.conf
+#
+# The mkosi `base` profile pulls `kernel`; the `asahi` profile overrides it with
+# `kernel-16k`, and build_files/base-postprocess.sh erases any other kernel that
+# gets pulled in as a dependency. Only `kernel-16k` is requested here.
+#
+# One package per line; blank lines and `#` comments are ignored.
+
+# mkosi.profiles/base/mkosi.conf.d/base.conf
+fedora-repos-archive
+systemd-resolved
+coreutils
+dnf
+selinux-policy-targeted
+container-selinux
+tpm2-tools
+openssh-clients
+openssh-server
+plymouth
+plymouth-system-theme
+sudo
+vim-minimal
+btrfs-progs
+cryptsetup
+dnf5-plugins
+NetworkManager
+acl
+attr
+audit
+bash-color-prompt
+bash-completion
+bc
+bind-utils
+bzip2
+compsize
+crontabs
+dos2unix
+exfatprogs
+hostname
+iproute
+iputils
+less
+lsof
+micro
+ncurses
+nmap-ncat
+opensc
+parted
+rsync
+smartmontools
+symlinks
+time
+tree
+unzip
+usbutils
+wget
+which
+whois
+zip
+zram-generator-defaults
+just
+zig
+
+# mkosi.profiles/base/mkosi.conf.d/base_ext.conf
+bluez-tools
+bsdtar
+busybox
+fastfetch
+git-core
+htop
+jq
+openssl
+psmisc
+python-unversioned-command
+socat
+tzdata
+upower
+xxhash
+distrobox
+fuse-overlayfs
+nix
+nix-daemon
+slirp4netns
+
+# mkosi.profiles/base/mkosi.conf.d/bootc.conf
+systemd
+systemd-pam
+dbus
+bootc
+xfsprogs
+e2fsprogs
+dosfstools
+ostree
+nss-altfiles
+
+# mkosi.profiles/base/mkosi.conf.d/bootloader.conf
+bootupd
+grub2-efi-aa64
+efibootmgr
+shim
+
+# mkosi.profiles/base/mkosi.conf.d/initramfs.conf
+dracut
+dracut-network
+dracut-squash
+
+# mkosi.profiles/asahi/mkosi.conf
+asahi-platform-metapackage-core
+asahi-platform-metapackage-audio
+asahi-platform-metapackage-desktop
+NetworkManager-wifi
+binutils
+bluez
+iwd
+kernel-16k
+linux-firmware
+brcmfmac-firmware
+cirrus-audio-firmware
