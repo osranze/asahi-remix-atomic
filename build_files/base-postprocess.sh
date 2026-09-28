@@ -103,6 +103,14 @@ systemctl mask wpa_supplicant.service
 # --- SELinux customization -------------------------------------------------
 semodule -i /usr/share/selinux/custom/nix.pp
 
+# --- mkosi run_hwdb --------------------------------------------------------
+# dnf runs package scriptlets in a sandbox without /dev, /proc and /sys, so the
+# systemd-udev trigger cannot compile the hardware database. Regenerate it here.
+# `systemd-hwdb --usr` writes /usr/lib/udev/hwdb.bin; drop any /etc copy in its
+# favour (the binaries are equivalent but mkosi keeps the /usr one only).
+systemd-hwdb --usr update || echo "warning: systemd-hwdb update failed; hwdb.bin will be regenerated at boot"
+rm -f /etc/udev/hwdb.bin
+
 # --- mkosi asahi postinst: initramfs ---------------------------------------
 mkdir -p /var/roothome
 dracut --reproducible -v -f "/usr/lib/modules/${KVER}/initramfs.img" --no-hostonly --kver "${KVER}"
@@ -114,19 +122,40 @@ rm -rf /var/roothome
 rm -rf /usr/etc /var/* /boot/*
 
 # --- mkosi base finalize ---------------------------------------------------
+# Normalize the rpm database into the bootc/ostree layout:
+#   /usr/share/rpm          real directory holding the database
+#   /usr/lib/sysimage/rpm   symlink to ../../share/rpm
+#
+# The rpm package ships /usr/lib/sysimage/rpm as a real directory, but
+# `dnf --use-host-config` may resolve the builder's
+# /usr/lib/sysimage/rpm -> ../../share/rpm compatibility symlink and end up
+# writing the database to /usr/share/rpm instead, leaving both directories in
+# place. Detect where the database actually is and normalize both cases.
 RPM_MUT_DB="/usr/lib/sysimage/rpm-ostree-base-db"
 RPM_DB="/usr/lib/sysimage/rpm"
 RPM_OSTREE_DB="/usr/share/rpm"
 
-mkdir -p "${RPM_MUT_DB}"
-mv -T "${RPM_DB}" "${RPM_OSTREE_DB}"
-ln -srf "${RPM_OSTREE_DB}" "${RPM_DB}"
+if [ ! -f "${RPM_OSTREE_DB}/rpmdb.sqlite" ]; then
+    if [ ! -f "${RPM_DB}/rpmdb.sqlite" ]; then
+        printf 'Error: no rpm database found in %s or %s\n' "${RPM_DB}" "${RPM_OSTREE_DB}" >&2
+        ls -la /usr/lib/sysimage /usr/share 2>/dev/null || true
+        exit 1
+    fi
+    mkdir -p "${RPM_OSTREE_DB}"
+    cp -a "${RPM_DB}/." "${RPM_OSTREE_DB}/"
+fi
+
+# Replace /usr/lib/sysimage/rpm with the compatibility symlink.
+rm -rf "${RPM_DB}"
+ln -s ../../share/rpm "${RPM_DB}"
 
 # See: https://github.com/coreos/rpm-ostree/issues/4554
 # https://forge.fedoraproject.org/atomic/tracker/issues/82
+mkdir -p "${RPM_MUT_DB}"
 for file in rpmdb.sqlite rpmdb.sqlite-shm rpmdb.sqlite-wal; do
-    target="${RPM_DB}/${file}"
+    target="${RPM_OSTREE_DB}/${file}"
     link_path="${RPM_MUT_DB}/${file}"
+    [ -e "${target}" ] || continue
     # Note, this needs to be a hardlink, not a symbolic link.
     ln -f "${target}" "${link_path}"
 done
