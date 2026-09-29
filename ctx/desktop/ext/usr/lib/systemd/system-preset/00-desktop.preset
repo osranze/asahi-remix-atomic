@@ -1,0 +1,4 @@
+enable tuned.service
+enable tuned-ppd.service
+enable keyd.service
+enable greetd.service

@@ -1,29 +1,20 @@
 ARG REL_VER
 
-# Build context for the base rootfs build: package list, non-RPM content
-# (build_files/base-rootfs) and the build/postprocess scripts.
 FROM scratch AS ctx
-COPY build_files /
+COPY ctx /
 
 FROM quay.io/fedora/fedora-bootc:${REL_VER} AS builder
 
 ARG REL_VER
-# ARG values are not guaranteed to be exported to the build script's
-# environment, so promote the release version to an ENV for this stage (the
-# builder stage is discarded, so it never reaches the final image).
 ENV REL_VER=${REL_VER}
 
-# Assemble the base root filesystem with native dnf instead of
-# bootc-base-imagectl / rpm-ostree. The package set and postprocessing mirror
-# the mkosi `base` and `asahi` profiles.
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    bash /ctx/base-build.sh
+    bash /ctx/base/rootfs.sh
 
 FROM scratch
 COPY --from=builder /target-rootfs/ /
 
 LABEL containers.bootc 1
-LABEL ostree.bootable 1
 
 ENV container=oci
 STOPSIGNAL SIGRTMIN+3

@@ -7,10 +7,7 @@ on:
     paths:
       - 'Containerfile.base'
       - '.github/workflows/build-base.yml'
-      - 'build_files/base-build.sh'
-      - 'build_files/base-packages.txt'
-      - 'build_files/base-postprocess.sh'
-      - 'build_files/base-rootfs/**'
+      - 'ctx/base/**'
 
   # schedule:
   #   - cron: "21 0 * * *"

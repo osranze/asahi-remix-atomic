@@ -1,0 +1,1 @@
+kargs = ["console=tty1", "boot.shell_on_fail", "loglevel=3"]

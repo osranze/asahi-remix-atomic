@@ -1,0 +1,4 @@
+disable wpa_supplicant.service
+
+# via network manager
+# enable iwd.service
