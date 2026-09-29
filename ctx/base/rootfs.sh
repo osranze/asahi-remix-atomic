@@ -25,10 +25,8 @@ dnf -y \
     --installroot="${TARGET}" \
     --releasever="${REL_VER}" \
     --use-host-config \
-    --allowerasing \
     --setopt=install_weak_deps=False \
     --setopt=protect_running_kernel=False \
-    --setopt=excludepkgs="*-free" \
     --nodocs \
     install "${BASE_PACKAGES[@]}"
 
