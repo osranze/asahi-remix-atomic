@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
-mkdir /var/roothome
-
 install -m 0644 -o root -g root /etc/passwd /usr/lib/passwd
 install -m 0644 -o root -g root /etc/group /usr/lib/group
 
