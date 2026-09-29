@@ -11,10 +11,8 @@ dnf -y install dnf5-plugins
 dnf -y copr enable @asahi/fedora-remix-branding
 dnf -y install asahi-repos
 
-sed -i "s|enabled=1|enabled=0|" /etc/yum.repos.d/fedora-cisco-openh264.repo
-
-dnf -y install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' \
-    terra-release terra-release-multimedia terra-gpg-keys
+dnf -y install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+    https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 
 # --- native dnf bootstrap --------------------------------------------------
 mkdir -p "${TARGET}"
