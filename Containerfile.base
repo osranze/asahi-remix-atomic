@@ -9,10 +9,14 @@ ARG REL_VER
 ENV REL_VER=${REL_VER}
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    bash /ctx/base/rootfs.sh
+    --mount=type=tmpfs,dst=/run \
+    --mount=type=tmpfs,dst=/var/log \
+    /ctx/base/rootfs.sh
 
 FROM scratch
 COPY --from=builder /target-rootfs/ /
+
+RUN bootc container lint --no-truncate
 
 LABEL containers.bootc 1
 

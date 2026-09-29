@@ -39,4 +39,4 @@ dnf -y --setopt=install_weak_deps=False --nodocs install \
 # Apps
 dnf -y --setopt=install_weak_deps=False --nodocs install \
   thunar thunar-volman thunar-archive-plugin xarchiver 7zip-standalone 7zip gvfs \
-  chromium keepassxc mpv imv
+  chromium chromium-qt6-ui firefox firefox-langpacks keepassxc mpv imv

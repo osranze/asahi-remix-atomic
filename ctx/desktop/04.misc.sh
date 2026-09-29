@@ -17,4 +17,7 @@ systemctl preset-all
 rm -rf /etc/systemd/user/*
 systemctl --user --global preset-all
 
-dnf repoquery --installed --qf "%{name} %{installsize}\n" | numfmt --field 2 --to=iec > /usr/share/installed_pkg_desktop.txt
+{ printf "Package Arch Version Repository Size\n"
+  dnf repoquery --installed --qf "%{name} %{arch} %{evr} %{from_repo} %{installsize}\n" \
+  | sort | numfmt --field 5 --to=iec
+} | column -t > /usr/share/installed_pkg_desktop.txt

@@ -16,7 +16,7 @@ on:
         type: string
         default: ""
 
-      Image_title:
+      image_title:
         required: false
         type: string
         default: "Asahi Remix Atomic Image"
@@ -123,6 +123,7 @@ jobs:
             quay.io/coreos/chunkah:latest build \
               --verbose \
               --max-layers 128 \
+              --prune /sysroot/ \
               --config /config_ref.json \
               --tag "${IMAGE_NAME}:${{ inputs.image_tag }}" \
               --output oci:/run/out/chunked

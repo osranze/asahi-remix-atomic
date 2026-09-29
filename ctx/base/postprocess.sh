@@ -147,4 +147,8 @@ mkdir -p /var/lib/rpm-state
 test -d /var/tmp || mkdir -m 1777 /var/tmp
 
 # installed package manifest
-dnf repoquery --installed --qf "%{name} %{installsize}\n" | numfmt --field 2 --to=iec > /usr/share/installed_pkg_base.txt
+
+{ printf "Package Arch Version Repository Size\n"
+  dnf repoquery --installed --qf "%{name} %{arch} %{evr} %{from_repo} %{installsize}\n" \
+  | sort | numfmt --field 5 --to=iec
+} | column -t > /usr/share/installed_pkg_base.txt

@@ -11,9 +11,6 @@ dnf -y install dnf5-plugins
 dnf -y copr enable @asahi/fedora-remix-branding
 dnf -y install asahi-repos
 
-dnf -y install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-    https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
-
 # --- native dnf bootstrap --------------------------------------------------
 mkdir -p "${TARGET}"
 
@@ -57,7 +54,3 @@ chroot "${TARGET}" /tmp/postprocess.sh
 rm -f "${TARGET}/tmp/postprocess.sh"
 cleanup_mounts
 trap - EXIT
-
-# --- validation ------------------------------------------------------------
-# The same linter `bootc-base-imagectl build-rootfs` runs after composing.
-bootc container lint --rootfs="${TARGET}" --no-truncate
