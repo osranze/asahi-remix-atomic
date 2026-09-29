@@ -11,21 +11,24 @@ dnf -y install dnf5-plugins
 dnf -y copr enable @asahi/fedora-remix-branding
 dnf -y install asahi-repos
 
+sed -i "s|enabled=1|enabled=0|" /etc/yum.repos.d/fedora-cisco-openh264.repo
+
+dnf -y install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' \
+    terra-release terra-release-multimedia terra-gpg-keys
+
 # --- native dnf bootstrap --------------------------------------------------
 mkdir -p "${TARGET}"
 
 mapfile -t BASE_PACKAGES < <(grep -vE '^[[:space:]]*(#|$)' /ctx/base/packages.txt)
 
-# --use-host-config makes the repositories enabled above visible to the
-# installroot solver; the host configuration is otherwise not modified.
-# protect_running_kernel is disabled because the builder kernel is unrelated to
-# the (fresh, empty) target rootfs.
 dnf -y \
     --installroot="${TARGET}" \
     --releasever="${REL_VER}" \
     --use-host-config \
+    --allowerasing \
     --setopt=install_weak_deps=False \
     --setopt=protect_running_kernel=False \
+    --setopt=excludepkgs="*-free" \
     --nodocs \
     install "${BASE_PACKAGES[@]}"
 

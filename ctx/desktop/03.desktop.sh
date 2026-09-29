@@ -37,6 +37,6 @@ dnf -y --setopt=install_weak_deps=False --nodocs install \
   brightnessctl keyd tuned tuned-ppd tuned-switcher
 
 # Apps
-dnf -y --setopt=install_weak_deps=False --nodocs install --allowerasing \
+dnf -y --setopt=install_weak_deps=False --nodocs install \
   thunar thunar-volman thunar-archive-plugin xarchiver 7zip-standalone 7zip gvfs \
-  x264 x265 ffmpeg chromium keepassxc mpv imv
+  chromium keepassxc mpv imv
