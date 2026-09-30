@@ -1,3 +1,9 @@
+# Base image: Fedora Asahi Remix rootfs built with native dnf, no desktop.
+#
+#   ctx      build context payload, mounted at /ctx
+#   builder  bootstraps the target rootfs via ctx/base/01.rootfs.sh
+#   final    imports the rootfs and gates on `bootc container lint`
+
 ARG REL_VER
 
 FROM scratch AS ctx
@@ -5,23 +11,20 @@ COPY ctx /
 
 FROM quay.io/fedora/fedora-bootc:${REL_VER} AS builder
 
+# Redeclared because a top-level ARG is not visible inside a stage; ENV exports
+# it to the base/ scripts.
 ARG REL_VER
 ENV REL_VER=${REL_VER}
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    /ctx/base/rootfs.sh
+    /ctx/base/01.rootfs.sh
 
 FROM scratch
 COPY --from=builder /target-rootfs/ /
 
-RUN find /run/ -mindepth 1 -delete || true && \
-    find /var/log/ -mindepth 1 -delete || true
-
 RUN bootc container lint --no-truncate
 
-LABEL containers.bootc 1
-
+LABEL containers.bootc=1
 ENV container=oci
 STOPSIGNAL SIGRTMIN+3
-
 CMD ["/sbin/init"]

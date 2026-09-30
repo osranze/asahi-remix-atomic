@@ -1,4 +1,4 @@
-name: Reusable bootable containers image builder
+name: Reusable bootable container image builder
 
 on:
   workflow_call:
@@ -6,31 +6,25 @@ on:
       containerfile:
         required: true
         type: string
-
       image_tag:
         required: true
         type: string
-
       base_image:
         required: false
         type: string
         default: ""
-
       image_title:
         required: false
         type: string
         default: "Asahi Remix Atomic Image"
-
       image_description:
         required: false
         type: string
         default: "Asahi Remix Atomic Image"
-
       rel_ver:
         required: false
         type: string
         default: "44"
-
       release:
         required: false
         type: boolean
@@ -86,13 +80,19 @@ jobs:
 
       - name: Build image
         run: |
+          # Only pass BASE_IMAGE for derived images; the base Containerfile does
+          # not declare it and podman warns about unconsumed build args.
+          build_args=(--build-arg REL_VER="${{ inputs.rel_ver }}")
+          if [[ -n "${{ inputs.base_image }}" ]]; then
+            build_args+=(--build-arg BASE_IMAGE="${{ inputs.base_image }}")
+          fi
+
           podman build \
             --format oci \
             --authfile /tmp/config.json \
             --tag ${IMAGE_NAME}:prechunk \
             --file ${{ inputs.containerfile }} \
-            --build-arg REL_VER="${{ inputs.rel_ver }}" \
-            --build-arg BASE_IMAGE="${{ inputs.base_image }}" \
+            "${build_args[@]}" \
             --label containers.bootc=1 \
             --label org.opencontainers.image.version="${IMG_VER}" \
             --label org.opencontainers.image.title="${{ inputs.image_title }}" \

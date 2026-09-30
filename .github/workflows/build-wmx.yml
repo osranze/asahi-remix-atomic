@@ -1,6 +1,5 @@
 name: Build WMX image
 
-
 on:
   push:
     branches:
@@ -31,20 +30,11 @@ permissions:
   packages: write
 
 jobs:
-
   wmx:
-
     uses: ./.github/workflows/bootable-containers.yml
-
-
     with:
-
-      containerfile: Containerfile
-
+      containerfile: Containerfile.wmx
       image_tag: wmx
-
       base_image: ghcr.io/${{ github.repository }}:base
-
       release: ${{ (github.event_name == 'workflow_dispatch' && inputs.release) || false }}
-
     secrets: inherit

@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 #
-# Postprocess the dnf-native base root filesystem.
+# Stage 02: postprocess the dnf-native base root filesystem (runs in the chroot).
 set -xeuo pipefail
 
-KERNEL_PREFIX="kernel-16k"
+kernel_prefix="kernel-16k"
 
+# --- users and groups ------------------------------------------------------
 # nss-altfiles reads /usr/lib/{passwd,group}; seed them from the mutable files.
 install -m 0644 -o root -g root /etc/passwd /usr/lib/passwd
-install -m 0644 -o root -g root /etc/group  /usr/lib/group
+install -m 0644 -o root -g root /etc/group /usr/lib/group
 
+# --- bootc integration -----------------------------------------------------
 # bootc owns updates instead of the image-fetching timer.
 sed -i 's|^ExecStart=.*|ExecStart=/usr/bin/bootc update --quiet|' \
     /usr/lib/systemd/system/bootc-fetch-apply-updates.service
@@ -19,6 +21,7 @@ bootupctl backend generate-update-metadata
 # Image-mode systems expect HOME below /var.
 sed -i 's|^HOME=.*|HOME=/var/home|' /etc/default/useradd
 
+# --- mutable state layout --------------------------------------------------
 # Move mutable state under /var and replace the top-level directories with
 # symlinks, matching the bootc/ostree layout.
 rm -rf /home /root /usr/local /srv /opt /mnt /boot /media
@@ -32,20 +35,22 @@ ln -sT var/roothome /root
 ln -sT var/srv /srv
 ln -sT ../var/usrlocal /usr/local
 
+# --- tmpfiles --------------------------------------------------------------
 # Keep /tmp on tmpfs (undoes the RHEL-only basic.target change).
 mkdir -p /usr/lib/systemd/system/local-fs.target.wants
-test -f /usr/lib/systemd/system/local-fs.target.wants/tmp.mount ||
+[[ -f /usr/lib/systemd/system/local-fs.target.wants/tmp.mount ]] ||
     ln -sf ../tmp.mount /usr/lib/systemd/system/local-fs.target.wants
 
 # systemd-tmpfiles does not follow symlinks; provision /root via /var/roothome.
 # https://github.com/containers/bootc/issues/358
-sed -i -e 's, /root, /var/roothome,' /usr/lib/tmpfiles.d/provision.conf
+sed -i 's| /root| /var/roothome|' /usr/lib/tmpfiles.d/provision.conf
 # /var/roothome is also defined in rpm-ostree-0-integration.conf.
-sed -i -e '/^d- \/var\/roothome /d' /usr/lib/tmpfiles.d/provision.conf
+sed -i '/^d- \/var\/roothome /d' /usr/lib/tmpfiles.d/provision.conf
 
 # Workaround for https://issues.redhat.com/browse/RHEL-106203
 rm -f /usr/lib/tmpfiles.d/home.conf
 
+# --- systemd presets -------------------------------------------------------
 # Undo RPM scripts enabling units; the presets are authoritative.
 # https://github.com/projectatomic/rpm-ostree/issues/1803
 rm -rf /etc/systemd/system/*
@@ -53,55 +58,62 @@ systemctl preset-all
 rm -rf /etc/systemd/user/*
 systemctl --user --global preset-all
 
+# --- kernel ----------------------------------------------------------------
 # kernel-install must not run the Asahi m1n1 hook; bootc owns kernel installs.
 :> /usr/lib/kernel/install.d/15-update-m1n1.install
 
 # Drop every kernel that is not the 16k Asahi kernel.
-readarray -t REMOVE_PKGS < <(
-    rpm -qa --qf '%{NAME}\n' \
-        | grep -E '^kernel(-|$)' \
-        | grep -v -E "^${KERNEL_PREFIX}(-|$)" \
-        | sort -u
+mapfile -t remove_pkgs < <(
+    rpm -qa --qf '%{NAME}\n' |
+        grep -E '^kernel(-|$)' |
+        grep -v -E "^${kernel_prefix}(-|$)" |
+        sort -u
 )
 
-if [ "${#REMOVE_PKGS[@]}" -gt 0 ]; then
-    printf 'Remove:\n - %s\n' "${REMOVE_PKGS[@]}"
-    rpm --erase "${REMOVE_PKGS[@]}" --nodeps
+if [[ ${#remove_pkgs[@]} -gt 0 ]]; then
+    printf 'Remove:\n - %s\n' "${remove_pkgs[@]}"
+    rpm --erase "${remove_pkgs[@]}" --nodeps
 fi
 
-KERNEL_COUNT=$(find /usr/lib/modules -mindepth 1 -maxdepth 1 -type d | wc -l)
-if [ "${KERNEL_COUNT}" -ne 1 ]; then
-    printf 'Error: expected exactly one kernel, found %s:\n' "${KERNEL_COUNT}"
+kernel_count=$(find /usr/lib/modules -mindepth 1 -maxdepth 1 -type d | wc -l)
+if [[ ${kernel_count} -ne 1 ]]; then
+    printf 'Error: expected exactly one kernel, found %s:\n' "${kernel_count}" >&2
     ls /usr/lib/modules
     exit 1
 fi
 
-KVER="$(ls /usr/lib/modules | tail -n1)"
+kver=$(ls /usr/lib/modules | tail -n1)
 
-sed -i "s|^DTBS=.*|DTBS=\"/usr/lib/modules/${KVER}/dtb\"|" /etc/sysconfig/update-m1n1
+sed -i "s|^DTBS=.*|DTBS=\"/usr/lib/modules/${kver}/dtb\"|" /etc/sysconfig/update-m1n1
 
+# --- wifi ------------------------------------------------------------------
 # iwd is the WiFi backend on Asahi.
 systemctl mask wpa_supplicant.service
 
-# SELinux - /nix/*
+# --- selinux ---------------------------------------------------------------
+# SELinux: allow /nix/*.
 semodule -i /usr/share/selinux/custom/nix.pp
 
+# --- hardware database -----------------------------------------------------
 # dnf runs package scriptlets in a sandbox without /dev, /proc and /sys, so the
 # systemd-udev trigger cannot compile the hardware database. Regenerate it here.
 # `systemd-hwdb --usr` writes /usr/lib/udev/hwdb.bin; drop any /etc copy in its
 # favour (the binaries are equivalent but mkosi keeps the /usr one only).
-systemd-hwdb --usr update || echo "warning: systemd-hwdb update failed; hwdb.bin will be regenerated at boot"
+systemd-hwdb --usr update ||
+    echo 'warning: systemd-hwdb update failed; hwdb.bin will be regenerated at boot'
 rm -f /etc/udev/hwdb.bin
 
-# initramfs
+# --- initramfs -------------------------------------------------------------
 mkdir -p /var/roothome
-dracut --reproducible -v -f "/usr/lib/modules/${KVER}/initramfs.img" --no-hostonly --kver "${KVER}"
-chmod 0600 "/usr/lib/modules/${KVER}/initramfs.img"
+dracut --reproducible -v -f --no-hostonly --kver "${kver}" \
+    "/usr/lib/modules/${kver}/initramfs.img"
+chmod 0600 "/usr/lib/modules/${kver}/initramfs.img"
 rm -rf /var/roothome
 
 # Build-time state is recreated at runtime from tmpfiles.d/sysusers.
 rm -rf /usr/etc /var/* /boot/*
 
+# --- rpm database ----------------------------------------------------------
 # Normalize the rpm database into the bootc/ostree layout:
 #   /usr/share/rpm          real directory holding the database
 #   /usr/lib/sysimage/rpm   symlink to ../../share/rpm
@@ -111,31 +123,31 @@ rm -rf /usr/etc /var/* /boot/*
 # /usr/lib/sysimage/rpm -> ../../share/rpm compatibility symlink and end up
 # writing the database to /usr/share/rpm instead, leaving both directories in
 # place. Detect where the database actually is and normalize both cases.
-RPM_MUT_DB="/usr/lib/sysimage/rpm-ostree-base-db"
-RPM_DB="/usr/lib/sysimage/rpm"
-RPM_OSTREE_DB="/usr/share/rpm"
+rpm_mut_db=/usr/lib/sysimage/rpm-ostree-base-db
+rpm_db=/usr/lib/sysimage/rpm
+rpm_ostree_db=/usr/share/rpm
 
-if [ ! -f "${RPM_OSTREE_DB}/rpmdb.sqlite" ]; then
-    if [ ! -f "${RPM_DB}/rpmdb.sqlite" ]; then
-        printf 'Error: no rpm database found in %s or %s\n' "${RPM_DB}" "${RPM_OSTREE_DB}" >&2
+if [[ ! -f "${rpm_ostree_db}/rpmdb.sqlite" ]]; then
+    if [[ ! -f "${rpm_db}/rpmdb.sqlite" ]]; then
+        printf 'Error: no rpm database found in %s or %s\n' "${rpm_db}" "${rpm_ostree_db}" >&2
         ls -la /usr/lib/sysimage /usr/share 2>/dev/null || true
         exit 1
     fi
-    mkdir -p "${RPM_OSTREE_DB}"
-    cp -a "${RPM_DB}/." "${RPM_OSTREE_DB}/"
+    mkdir -p "${rpm_ostree_db}"
+    cp -a "${rpm_db}/." "${rpm_ostree_db}/"
 fi
 
 # Replace /usr/lib/sysimage/rpm with the compatibility symlink.
-rm -rf "${RPM_DB}"
-ln -s ../../share/rpm "${RPM_DB}"
+rm -rf "${rpm_db}"
+ln -s ../../share/rpm "${rpm_db}"
 
 # See: https://github.com/coreos/rpm-ostree/issues/4554
 # https://forge.fedoraproject.org/atomic/tracker/issues/82
-mkdir -p "${RPM_MUT_DB}"
+mkdir -p "${rpm_mut_db}"
 for file in rpmdb.sqlite rpmdb.sqlite-shm rpmdb.sqlite-wal; do
-    target="${RPM_OSTREE_DB}/${file}"
-    link_path="${RPM_MUT_DB}/${file}"
-    [ -e "${target}" ] || continue
+    target="${rpm_ostree_db}/${file}"
+    link_path="${rpm_mut_db}/${file}"
+    [[ -e "${target}" ]] || continue
     # Note, this needs to be a hardlink, not a symbolic link.
     ln -f "${target}" "${link_path}"
 done
@@ -144,10 +156,19 @@ done
 ln -s ../run /var/run
 # https://gitlab.com/fedora/bootc/tracker/-/issues/58
 mkdir -p /var/lib/rpm-state
-test -d /var/tmp || mkdir -m 1777 /var/tmp
+[[ -d /var/tmp ]] || mkdir -m 1777 /var/tmp
 
-# installed package manifest
-{ printf "Package Arch Version Repository Size\n"
-  dnf repoquery --installed --qf "%{name} %{arch} %{evr} %{from_repo} %{installsize}\n" \
-  | sort | numfmt --field 5 --to=iec
+# --- installed package manifest --------------------------------------------
+{
+    printf 'Package Arch Version Repository Size\n'
+    dnf repoquery --installed \
+        --qf '%{name} %{arch} %{evr} %{from_repo} %{installsize}\n' |
+        sort | numfmt --field 5 --to=iec
 } | column -t > /usr/share/installed_pkg_base.txt
+
+# --- cleanup ---------------------------------------------------------------
+# This script runs inside the target rootfs, so /run and /var/log are image
+# paths, not host-side /target-rootfs paths. /var/log is repopulated by the dnf
+# repoquery above, so it must be cleaned after the manifest is generated.
+find /run -mindepth 1 -delete || true
+find /var/log -mindepth 1 -delete || true

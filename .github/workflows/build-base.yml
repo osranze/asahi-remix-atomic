@@ -28,17 +28,10 @@ permissions:
   packages: write
 
 jobs:
-
   base:
-
     uses: ./.github/workflows/bootable-containers.yml
-
     with:
-
       containerfile: Containerfile.base
-
       image_tag: base
-
       release: ${{ (github.event_name == 'workflow_dispatch' && inputs.release) || false }}
-
     secrets: inherit

@@ -52,7 +52,7 @@ zip
 zram-generator-defaults
 just
 
-# base_ext
+# base extras
 bluez-tools
 bsdtar
 busybox
