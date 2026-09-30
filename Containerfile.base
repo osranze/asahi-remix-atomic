@@ -14,6 +14,9 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 FROM scratch
 COPY --from=builder /target-rootfs/ /
 
+RUN find /run/ -mindepth 1 -delete || true && \
+    find /var/log/ -mindepth 1 -delete || true
+
 RUN bootc container lint --no-truncate
 
 LABEL containers.bootc 1

@@ -151,7 +151,3 @@ test -d /var/tmp || mkdir -m 1777 /var/tmp
   dnf repoquery --installed --qf "%{name} %{arch} %{evr} %{from_repo} %{installsize}\n" \
   | sort | numfmt --field 5 --to=iec
 } | column -t > /usr/share/installed_pkg_base.txt
-
-# clean
-find /target-rootfs/run/ -mindepth 1 -delete || true
-find /target-rootfs/var/log/ -mindepth 1 -delete || true
