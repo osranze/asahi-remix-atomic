@@ -42,7 +42,11 @@ for d in dev proc sys; do
     mount --rbind "/${d}" "${TARGET}/${d}"
 done
 
-umount -R "${TARGET}/${d}" 2>/dev/null || umount -l "${TARGET}/${d}" 2>/dev/null || true
+cleanup_mounts() {
+    for d in sys proc dev; do
+        umount -R "${TARGET}/${d}" 2>/dev/null || umount -l "${TARGET}/${d}" 2>/dev/null || true
+    done
+}
 
 trap cleanup_mounts EXIT
 
