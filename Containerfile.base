@@ -9,8 +9,6 @@ ARG REL_VER
 ENV REL_VER=${REL_VER}
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=tmpfs,dst=/run \
-    --mount=type=tmpfs,dst=/var/log \
     /ctx/base/rootfs.sh
 
 FROM scratch
